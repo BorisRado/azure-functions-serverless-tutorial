@@ -12,7 +12,8 @@ Note that this is just a gentle hello world example - for more information, plea
 In order to complete the tutorial, the tools you will need are the following:
 * `java` 8 or newer. Currently, the Azure Functions only support versions `8` and `11`, so I suggest using version `11`; 
 * `maven` 3.2.1 or newer;
-* `func`: will allow us to test the application locally. To download it, follow the instructions contained in the [official repo](https://github.com/Azure/azure-functions-core-tools). If you downloaded it correctly, you should be able to run `func --version` and get prompted back a value such as `4.0.4483`
+* `func`: will allow us to test the application locally. To download it, follow the instructions contained in the [official repo](https://github.com/Azure/azure-functions-core-tools). If you downloaded it correctly, you should be able to run `func --version` and get prompted back a value such as `4.0.4483`;
+* An active Azure subscription.
 
 ### Creating the application to be deployed
 **TL-DR**: if you already have a JavaEE application with the KumuluzEE framework, just add the following plugin into the root `pom.xml`:
@@ -35,7 +36,7 @@ If you don't have an application ready, follow along! We'll be creating a very s
 * `POST /movies`: insert a new movie. The name of the movie to be inserted must be contained in the body of the request;
 * `GET /movies`: get list of all movies;
 
-The application won't even be connected to a database, so it's indeed as simple as it gets!
+For simplicity, the application won't even be connected to an Azure SQL database. Of course, this is a bad practice, because when designing a serverless application, not unlike when designing a microservices application, we should ensure, that the single instances running the application are stateless, i.e. that no data is stored in memory. In our case, instead of storing the movie names in an external and persistent database, we do just that, i.e. we store the movies in the local memory. Because of that, we may loose the data. If you want to create a more serious application, you may refer to the sample project available in [another Github repository](https://github.com/BorisRado/azure-functions-serverless-tutorial-jdbc). 
 
 First, create the skeleton application:
 ```bash
