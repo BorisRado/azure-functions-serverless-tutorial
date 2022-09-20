@@ -4,7 +4,7 @@ In this tutorial, we'll go through the main benefits of using the KumuluzEE serv
 ## Motivation
 The purpose of the KumuluzEE serverless framework is to allow you to deploy any JavaEE application to serverless environments without worrying about the configuration required, and without making any changes to the code. The project is still in its early stages and it only supports Azure Functions, but we plan on extending this functionality to other cloud providers as soon as possible!
 
-If you ever tried to deploy a Function app on Azure, you know that you either have to manually create all the `function.json` and `host.json` files, or that you have to use the provided library, that, as a downside, cannot be easily integrated with JavaEE applications. With our framework, there is no need for you to worry about all the `.json` files, that are required to run the app, nor any details about how to deploy the app to the cloud. You just take *any* existing JavaEE application, created with the KumuluzEE framework, add a single plugin to the `pom.xml`, and issue one command when you want to deploy the app. Sounds interesting? Keep reading, I'll tell you exactly how it's done!
+If you ever tried to deploy a Function app on Azure, you know that you either have to manually create all the `function.json` and `host.json` files yourself, or that you have to use the provided library. This library, as a downside, cannot be easily integrated with JavaEE applications. With the `kumuluzee-serverless` framework, there is no need for you to worry about all the `json` files, that are required to run the app, nor any details about how to deploy the app to the cloud. You just take *any* existing JavaEE application, created with the KumuluzEE framework, add a single plugin to the `pom.xml`, and issue one command when you want to deploy the app. Sounds interesting? Keep reading, I'll tell you exactly how it's done!
 
 Note that this is just a gentle hello world example - for more information, please refer to the `README.md` that you can find on [GitHub](https://github.com/BorisRado/azure-functions-plugin).
 
@@ -21,7 +21,7 @@ In order to complete the tutorial, the tools you will need are the following:
 <plugin>
     <groupId>com.kumuluz.ee</groupId>
     <artifactId>config-generator-maven-plugin</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0.0-SNAPSHOT</version>
     <executions>
         <execution>
             <goals>                                         
@@ -36,7 +36,7 @@ If you don't have an application ready, follow along! We'll be creating a very s
 * `POST /movies`: insert a new movie. The name of the movie to be inserted must be contained in the body of the request;
 * `GET /movies`: get list of all movies;
 
-For simplicity, the application won't even be connected to an Azure SQL database. Of course, this is a bad practice, because when designing a serverless application, not unlike when designing a microservices application, we should ensure, that the single instances running the application are stateless, i.e. that no data is stored in memory. In our case, instead of storing the movie names in an external and persistent database, we do just that, i.e. we store the movies in the local memory. Because of that, we may loose the data. If you want to create a more serious application, you may refer to the sample project available in [another Github repository](https://github.com/BorisRado/azure-functions-serverless-tutorial-jdbc). 
+For simplicity, the application won't even be connected to an external database. Of course, this is a bad practice, because when designing a serverless application, not unlike when designing a microservices application, we should ensure, that the single instances running the application are stateless, i.e. that no data is stored in memory. In our case, instead of storing the movie names in an external and persistent database, we store the movies in the local memory. Because of that, we may loose the data for example when the application is restarted. If you want to create a more serious application, you may refer to the sample project available in [this Github repository](https://github.com/BorisRado/azure-functions-serverless-tutorial-jdbc), or take any application from [kumuluzee-samples repository](https://github.com/kumuluz/kumuluzee-samples) and proceed to the next section, *Testing locally*.
 
 First, create the skeleton application:
 ```bash
@@ -46,7 +46,7 @@ $ mvn -B archetype:generate \
     -DartifactId=movies
 $ cd movies
 ```
-Add the required dependencies to the `pom.xml` file. In particular, add the regular dependencies as in a regular KumuluzEE application (core, jetty server, jax-rs, ...), and the Kumuluz serverless plugin. In the end, the file should look similar to the following one:
+Add the required dependencies to the `pom.xml` file. In particular, add the dependencies as in any regular KumuluzEE application (core, jetty server, jax-rs, ...), and then also add the Kumuluz serverless plugin. In the end, the file should look similar to the following one:
 ```yaml
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
@@ -60,7 +60,9 @@ Add the required dependencies to the `pom.xml` file. In particular, add the regu
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
-        <kumuluzee.version>3.13.0-SNAPSHOT</kumuluzee.version>
+        <kumuluzee.version>4.0.0</kumuluzee.version>
+
+        <serverless.version>1.0.0-SNAPSHOT</serverless.version>
     </properties>
 
     <dependencyManagement>
@@ -109,7 +111,7 @@ Add the required dependencies to the `pom.xml` file. In particular, add the regu
             <plugin>
                 <groupId>com.kumuluz.ee</groupId>
                 <artifactId>serverless-maven-plugin</artifactId>
-                <version>1.0-SNAPSHOT</version>
+                <version>${serverless.version}</version>
                 <executions>
                     <execution>
                         <goals>
@@ -122,9 +124,9 @@ Add the required dependencies to the `pom.xml` file. In particular, add the regu
     </build>
 </project>
 ```
-Note that you are required to use at least version `4.0.0` of the KumuluzEE framework, and note also, that the serverless plugin is still not available on the Maven central repository, so you are required to clone the [repository](https://github.com/BorisRado/azure-functions-plugin) and install it locally with the command `mvn clean install`.
+Note that you are required to use at least version `4.0.0` of the KumuluzEE framework, and note also, that the serverless plugin is still not available on the Maven central repository, so you are required to fork the [repository](https://github.com/BorisRado/azure-functions-plugin) and install the library locally with the command `mvn clean install`.
 
-You can now delete the pre-populated `App.java` class and Junit tests, and create the base application class (`CustomApplication.java`) and the class containing actual endpoints (`MoviesResource.java`), respectively with the following content:
+Now, delete the pre-populated `App.java` class and Junit tests - we won't need them. Next, create the base application class (`CustomApplication.java`):
 ```java
 package com.acme;
 
@@ -135,6 +137,7 @@ import javax.ws.rs.core.Application;
 public class CustomApplication extends Application {
 }
 ```
+Finally, code the class that contains the actual endpoints (`MoviesResource.java`):
 ```java
 package com.acme;
 
@@ -177,7 +180,7 @@ public class MoviesResource {
 ```
 
 
-Please refer to the [Getting started tutorial from KumuluzEE](https://ee.kumuluz.com/tutorials/develop-microservices-with-java-ee-and-kumuluzee) to get more information regarding the steps we have taken when building the app.
+Please refer to the [Getting started tutorial from KumuluzEE](https://ee.kumuluz.com/tutorials/develop-microservices-with-java-ee-and-kumuluzee) if you are unsure about any part of the above code.
 
 ### Testing locally
 At this point, you should be able to build the application just like any other maven application:
@@ -186,7 +189,7 @@ mvn clean package
 ```
 Now, there are two ways in which you can test your application:
 * the *traditional* way: use the command `java -jar target/movies_app.jar`; this will start a process, that will listen on port `8080` and respond to any incoming request;
-* with *azure func*: navigate to `target/azf-config` and notice, that the folder contains a `host.json` file, the `jar` containing all the logic and dependencies, and a folder for every endpoint. Inside that folder, run the command `func start -p 8080` so to simulate what will happen on the cloud: a host will be started, and will redirect the incoming HTTP traffic to the java process that will actually respond to the requests. For more information, see the [documentation for custom handlers](https://docs.microsoft.com/en-us/azure/azure-functions/functions-custom-handlers).
+* with *azure func*: navigate to `target/azf-config` (`cd target/azf-config`) and notice, that the folder contains the `host.json` file, the `jar` containing all the logic (`movies_app.jar`), and a folder for every endpoint. Inside that folder, run the command `func start -p 8080` so to simulate what will happen on the cloud: a host will be started, and will redirect the incoming HTTP traffic to the java process that will actually respond to the requests. For more information about the inner mechanisms, see the [documentation for custom handlers](https://docs.microsoft.com/en-us/azure/azure-functions/functions-custom-handlers).
 
 Either way, you should be able to navigate to `localhost:8080/movies` and get the responses from the microservice. For example, you can issue the following sequence of commands or use a tool such as Postman:
 ```bash
@@ -199,7 +202,7 @@ $ curl http://localhost:8080/movies
 ```
 
 ### Deploy on Azure Cloud
-Now that we made sure everything works ok on our local computer, we are ready to deploy the app on the cloud! First, you need to create a deployment user, for example with the command `az webapp deployment user set --user-name <user> --password <password>`, or from the azure portal.
+Now that we made sure everything works ok on our local computer, we are ready to deploy the app on the cloud! First, you need to create a deployment user, for example with the command `az webapp deployment user set --user-name <user> --password <password>`.
 
 Next, you have to create a function app. With your browser, navigate to [the azure portal](https://portal.azure.com/#home), and then search for the `Function App service`. Click on `+Create` (on the top left), and configure the fields that appear - you can set the Function App name and region as you wish. When filling the required fields, make only sure to select Java with the correct version as the runtime stack, and to use Windows as the operating system - the deployment with the REST methods, that the plugin is using, fails when using a Linux OS on the consumption serverless plan.
 
