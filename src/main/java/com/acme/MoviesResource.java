@@ -26,7 +26,7 @@ public class MoviesResource {
     @POST
     public Response postMovie(String movieName) {
         if (movieName.isEmpty()) {
-            log.info("Received POST request with empty body.");
+            log.warning("Received POST request with empty body.");
             return Response.status(Response.Status.BAD_REQUEST).build();
         } else {
             log.info("Received POST request for movie " + movieName + "!");
